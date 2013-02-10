@@ -269,12 +269,14 @@ static struct omap2_hsmmc_info mmc_controllers[] = {
 #endif
 	},
 	/* [2]->wifi controller: set the controller id according to devtree */
-	{	.mmc		= 0,
+	{
+		.mmc		= 3,
+		.name		= "wl1271",
 		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
 		.gpio_cd	= -EINVAL,
 		.gpio_wp	= -EINVAL,
-		.ocr_mask	= MMC_VDD_32_33 | MMC_VDD_33_34 |
-					MMC_VDD_165_195,
+		.ocr_mask	= MMC_VDD_32_33 | MMC_VDD_33_34 | MMC_VDD_165_195,
+		.nonremovable	= 1,
 		.init_card	= wl12xx_init_card,
 	},
 	{}	/* Terminator */
@@ -315,38 +317,8 @@ int __init mapphone_hsmmc_init(void)
 		}
 	}
 
-	/* use devtree to change default emmc Vcc (VSDIO) here */
 
-	/* Set wifi's controller id */
-	mmc_node = of_find_node_by_path(DT_PATH_MMC3);
-	if (mmc_node) {
-		mmc_prop = of_get_property(mmc_node,
-			DT_PROP_MMC_CARD_CONNECT, NULL);
-			if (mmc_prop) {
-				tiwlan_mmc_controller =
-					*(int *)mmc_prop;
-				is_found = 1;
-				printk("wifi controller id = %d\n",*(int *)mmc_prop);
-			}
-	}
-
-	if (!is_found) {
-		tiwlan_mmc_controller = 5;
-	}
-	if (tiwlan_mmc_controller > 0 &&
-			tiwlan_mmc_controller <= 5) {
-		mmc_controllers[2].mmc = tiwlan_mmc_controller;
-	} else {
-		tiwlan_mmc_controller = 0;
-	}
-	
-//	mmc_controllers[2].mmc = 3;
-	/* set sd_det_n */
-	sd_det_n = get_gpio_by_name("sd_det_n");
-	if (sd_det_n >= 0)
-		mmc_controllers[0].gpio_cd = sd_det_n;
-	else
-		mmc_controllers[0].gpio_cd = GPIO_SIGNAL_SD_DET_N;
+	mmc_controllers[0].gpio_cd = GPIO_SIGNAL_SD_DET_N;
 
 	omap2_hsmmc_init(mmc_controllers);
 	for (c = mmc_controllers; c->mmc; c++)
