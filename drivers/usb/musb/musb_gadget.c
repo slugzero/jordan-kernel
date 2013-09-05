@@ -1499,62 +1499,32 @@ musb_gadget_set_self_powered(struct usb_gadget *gadget, int is_selfpowered)
 	return 0;
 }
 
-static void musb_pullup2(struct musb *musb, int is_on)
+static void musb_pullup(struct musb *musb, int is_on)
 {
 	u8 power;
-	u32 reg, stdby;
+	u32 reg;
 
 	reg = omap_readl(OTG_SYSCONFIG);
-	stdby = omap_readl(OTG_FORCESTDBY);
 
 	power = musb_readb(musb->mregs, MUSB_POWER);
 	if (is_on) {
+		reg &= ~SMARTSTDBY;    /* remove possible smartstdby */
 		reg |= NOSTDBY;        /* enable no standby */
 		reg |= NOIDLE;         /* enable no idle */
 		power |= MUSB_POWER_SOFTCONN;
-		stdby &= ~ENABLEFORCE; /* disable MSTANDBY */
 	} else {
+		reg |= SMARTSTDBY;        /* enable smart standby */
 		reg &= ~NOSTDBY;          /* remove possible nostdby */
 		reg &= ~NOIDLE;           /* remove possible noidle */
 		power &= ~MUSB_POWER_SOFTCONN;
-		stdby |= ENABLEFORCE;     /* enable MSTANDBY */
 	}
 
-	printk(KERN_INFO "%s - %s USB Pullups \n", __func__,
-		is_on ? "Enabling" : "Disabling");
-
-	/* Do not change the order of this write, otherwise
-		MUSB Power Management may not work */
-	omap_writel(stdby, OTG_FORCESTDBY);
 	omap_writel(reg, OTG_SYSCONFIG);
 	/* FIXME if on, HdrcStart; if off, HdrcStop */
 
 	DBG(3, "gadget %s D+ pullup %s\n",
 		musb->gadget_driver->function, is_on ? "on" : "off");
 	musb_writeb(musb->mregs, MUSB_POWER, power);
-}
-
-bool cpcap_usb;
-
-static void musb_pullup(struct musb *musb, int is_on)
-{
-	is_on = !!is_on;
-
-	if (is_on && !cpcap_usb) {
-		printk("Disable usb:\n");
-		musb_pullup2(musb, !is_on);
-		stop_activity(musb, musb->gadget_driver);
-	} else if (is_on && cpcap_usb) {
-		musb_pullup2(musb, is_on);
-		printk("Enable usb\n");
-	}
-}
-
-void cpcap_musb_notifier_call(bool event)
-{
- 	struct musb *musb = g_musb;
-	cpcap_usb = event;
-	musb_pullup(musb,1);
 }
 
 #if 0
