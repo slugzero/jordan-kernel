@@ -340,6 +340,20 @@ static int configure_hardware(struct cpcap_usb_det_data *data,
 
 		retval |= cpcap_regacc_write(data->cpcap, CPCAP_REG_USBC3, 0,
 					     CPCAP_BIT_VBUSSTBY_EN);		
+		int reg;
+		cpcap_regacc_read(data->cpcap, CPCAP_REG_VUSBC, &reg);
+		pr_info("cpcap_usb_det: VUSB reg = 0x%04x\n", reg);
+	
+		retval |= cpcap_regacc_write(data->cpcap, CPCAP_REG_VUSBC,
+					     CPCAP_BIT_VUSB_MODE1 |
+					     CPCAP_BIT_VUSB_MODE0 |
+					     CPCAP_BIT_VUSB |
+					     CPCAP_BIT_VUSBSTBY,
+					     CPCAP_BIT_VUSB_MODE1 |
+					     CPCAP_BIT_VUSB_MODE0 |
+					     CPCAP_BIT_VUSB |
+					     CPCAP_BIT_VUSBSTBY);
+
 		break;
 
 	case CPCAP_ACCY_UNKNOWN:
