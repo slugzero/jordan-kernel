@@ -325,21 +325,29 @@ static int configure_hardware(struct cpcap_usb_det_data *data,
 		break;
 
 	case CPCAP_ACCY_USB_DEVICE:
-		retval |= cpcap_regacc_write(data->cpcap, CPCAP_REG_USBC3,
-					     0,
-					     CPCAP_BIT_DMPD_SPI |
-					     CPCAP_BIT_DPPD_SPI |
-					     CPCAP_BIT_SUSPEND_SPI |
-					     CPCAP_BIT_ULPI_SPI_SEL);
 		retval |= cpcap_regacc_write(data->cpcap, CPCAP_REG_USBC2, 
 					     CPCAP_BIT_USBXCVREN,
 					     CPCAP_BIT_USBXCVREN);
+		/* DisableVBus PullDown */
 		retval |= cpcap_regacc_write(data->cpcap, CPCAP_REG_USBC1,
 					     0,
 					     CPCAP_BIT_VBUSPD);
 
 		retval |= cpcap_regacc_write(data->cpcap, CPCAP_REG_USBC3, 0,
 					     CPCAP_BIT_VBUSSTBY_EN);		
+		int reg;
+		cpcap_regacc_read(data->cpcap, CPCAP_REG_VUSBC, &reg);
+		pr_info("cpcap_usb_det: VUSB reg = 0x%04x\n", reg);
+	
+		/* Disable Reverse Mode */
+		retval |= cpcap_regacc_write(data->cpcap, CPCAP_REG_CRM,
+					     0, CPCAP_BIT_RVRSMODE);
+		/* Enable VBus PullDown */
+		retval |= cpcap_regacc_write(data->cpcap, CPCAP_REG_USBC1,
+					     CPCAP_BIT_VBUSPD,
+					     CPCAP_BIT_VBUSPD);
+		retval |= cpcap_regacc_write(data->cpcap, CPCAP_REG_USBC3, 0,
+					     CPCAP_BIT_VBUSSTBY_EN);
 		break;
 
 	case CPCAP_ACCY_UNKNOWN:
@@ -372,6 +380,8 @@ static int configure_hardware(struct cpcap_usb_det_data *data,
 	return retval;
 }
 
+extern void cpcap_musb_notifier_call(bool event);
+
 static void notify_accy(struct cpcap_usb_det_data *data, enum cpcap_accy accy)
 {
 	if (cpcap_usb_det_debug > 1)
@@ -397,7 +407,7 @@ static void notify_accy(struct cpcap_usb_det_data *data, enum cpcap_accy accy)
 	} else
 		vusb_disable(data);
 
-	if ((accy == CPCAP_ACCY_USB) || (accy == CPCAP_ACCY_FACTORY)) {
+	if ((accy == CPCAP_ACCY_USB) || (accy == CPCAP_ACCY_FACTORY) || (accy == CPCAP_ACCY_USB_DEVICE)) {
 		if (!data->usb_connected_dev) {
 			data->usb_connected_dev =
 			    platform_device_alloc("cpcap_usb_connected", -1);
@@ -406,6 +416,14 @@ static void notify_accy(struct cpcap_usb_det_data *data, enum cpcap_accy accy)
 	} else if (data->usb_connected_dev) {
 		platform_device_del(data->usb_connected_dev);
 		data->usb_connected_dev = NULL;
+	}
+
+	if (accy == CPCAP_ACCY_NONE || accy == CPCAP_ACCY_CHARGER) {
+		printk("USB disconnected!\n");
+		cpcap_musb_notifier_call(false);
+	} else if ((accy == CPCAP_ACCY_USB) || (accy == CPCAP_ACCY_FACTORY  || accy == CPCAP_ACCY_USB_DEVICE)) {
+		printk("USB connected!\n");
+		cpcap_musb_notifier_call(true);
 	}
 
 	if (accy == CPCAP_ACCY_CHARGER) {
