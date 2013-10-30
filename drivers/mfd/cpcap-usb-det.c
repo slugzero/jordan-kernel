@@ -379,11 +379,13 @@ static int configure_hardware(struct cpcap_usb_det_data *data,
 					     CPCAP_BIT_DMPD_SPI |
 					     CPCAP_BIT_DPPD_SPI |
 					     CPCAP_BIT_SUSPEND_SPI |
-					     CPCAP_BIT_ULPI_SPI_SEL,
+					     CPCAP_BIT_ULPI_SPI_SEL |
+					     CPCAP_BIT_VBUSSTBY_EN,
 					     CPCAP_BIT_DMPD_SPI |
 					     CPCAP_BIT_DPPD_SPI |
 					     CPCAP_BIT_SUSPEND_SPI |
-					     CPCAP_BIT_ULPI_SPI_SEL);
+					     CPCAP_BIT_ULPI_SPI_SEL |
+					     CPCAP_BIT_VBUSSTBY_EN);
 		break;
 	}
 
