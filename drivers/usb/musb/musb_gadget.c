@@ -1541,7 +1541,7 @@ static void musb_pullup(struct musb *musb, int is_on)
 	is_on = !!is_on;
 
 	if (is_on && !cpcap_usb) {
-		printk("Disable usb:\n");
+		printk("Disable usb/otg\n");
 		musb_pullup2(musb, !is_on);
 		stop_activity(musb, musb->gadget_driver);
 	} else if (is_on && cpcap_usb) {
@@ -1550,10 +1550,36 @@ static void musb_pullup(struct musb *musb, int is_on)
 	}
 }
 
-void cpcap_musb_notifier_call(bool event)
+void cpcap_musb_notifier_call(unsigned char event)
 {
  	struct musb *musb = g_musb;
-	cpcap_usb = event;
+
+	if (event == 2) {
+		u8 power;
+		u32 l;
+		u32 reg;
+		printk("Enable otg\n");
+		musb_start(musb);
+
+		reg = omap_readl(OTG_SYSCONFIG);
+		reg &= ~FORCEIDLE;           /* remove possible forceidle */
+		reg |= SMARTIDLE;		/* enable smart idle */
+		reg |= SMARTSTDBY;	/* enable smart standby */
+
+		omap_writel(0x11, OTG_SYSCONFIG);
+
+		l = omap_readl(OTG_FORCESTDBY);
+		l &= ~ENABLEFORCE;	/* disable MSTANDBY */
+		omap_writel(l, OTG_FORCESTDBY);
+
+		power = musb_readb(musb->mregs, MUSB_POWER);
+		power |= MUSB_POWER_SOFTCONN;
+		musb_writeb(musb->mregs, MUSB_POWER, power);
+
+		return;
+	}
+
+	cpcap_usb = (event == 1);
 	musb_pullup(musb,1);
 }
 
