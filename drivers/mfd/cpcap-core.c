@@ -79,6 +79,14 @@ static struct platform_device cpcap_batt_device = {
 	.dev.platform_data = NULL,
 };
 
+
+static struct platform_device cpcap_audio_device = {
+	.name           = "cpcap_audio",
+	.id             = -1,
+	.dev.platform_data  = NULL,
+};
+
+
 static struct platform_device cpcap_uc_device = {
 	.name           = "cpcap_uc",
 	.id             = -1,
@@ -101,6 +109,7 @@ static struct platform_device *cpcap_devices[] = {
 	&cpcap_adc_device,
 	&cpcap_key_device,
 	&cpcap_batt_device,
+	&cpcap_audio_device,
 	&cpcap_rtc_device,
 };
 

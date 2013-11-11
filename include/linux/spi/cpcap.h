@@ -762,6 +762,7 @@ struct cpcap_device {
 	void			*adcdata;
 	void			*battdata;
 	void			*ucdata;
+	void			*h2w_new_state_data;
 	void			(*h2w_new_state)(int);
 };
 
