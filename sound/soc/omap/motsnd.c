@@ -41,8 +41,7 @@
 
 #include "../../../arch/arm/mach-omap2/clock.h"
 
-
- #define MOTSND_DEBUG 
+#define MOTSND_DEBUG
 #ifdef MOTSND_DEBUG
 #define MOTSND_DEBUG_LOG(args...) printk(KERN_INFO "ALSA MOTSND:" args)
 #else
@@ -216,27 +215,6 @@ static struct snd_soc_ops motsnd_btvoice_ops = {
 	.hw_params = motsnd_btvoice_hw_params,
 };
 
-static int mcbsp_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-			struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *channels = hw_param_interval(params,
-						SNDRV_PCM_HW_PARAM_CHANNELS);
-	unsigned int val, min_mask;
-
-
-	val = SNDRV_PCM_FORMAT_S16_LE;
-
-	min_mask = snd_mask_min(&params->masks[SNDRV_PCM_HW_PARAM_FORMAT -
-				SNDRV_PCM_HW_PARAM_FIRST_MASK]);
-	snd_mask_reset(&params->masks[SNDRV_PCM_HW_PARAM_FORMAT -
-			SNDRV_PCM_HW_PARAM_FIRST_MASK],
-			min_mask);
-	snd_mask_set(&params->masks[SNDRV_PCM_HW_PARAM_FORMAT -
-				    SNDRV_PCM_HW_PARAM_FIRST_MASK],
-		     val);
-	return 0;
-}
-
 static int motsnd_cpcap_init(struct snd_soc_codec *codec)
 {
 	MOTSND_DEBUG_LOG("%s: Entered\n", __func__);
@@ -256,14 +234,16 @@ static struct snd_soc_dai modem_dai = {
 		.stream_name = "VoiceCall-DL",
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
 	.capture = {
 		.stream_name = "VoiceCall-UL",
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
 };
 
 /* Digital audio interface glue - connects codec <--> CPU */
@@ -274,8 +254,8 @@ static struct snd_soc_dai_link motsnd_dai[] = {
 	.stream_name = "McBSP2-STDac",
 	.cpu_dai = &omap_mcbsp_dai[0],
 	.codec_dai = &cpcap_dai[0],
-	.init = motsnd_cpcap_voice_init,
-	.ops = &motsnd_voice_ops,
+	.init = motsnd_cpcap_init,
+	.ops = &motsnd_ops,
 },
 {
 	.name = "Voice",
@@ -344,8 +324,8 @@ static int __init motsnd_soc_init(void)
 	pr_info("Set driver data\n");
 	platform_set_drvdata(mot_snd_device, &mot_snd_devdata);
 	mot_snd_devdata.dev = &mot_snd_device->dev;
-	*(unsigned int *)motsnd_dai[0].cpu_dai->private_data = 1; /* McBSP2 */
-	*(unsigned int *)motsnd_dai[1].cpu_dai->private_data = 2; /* McBSP3 */
+	//*(unsigned int *)motsnd_dai[0].cpu_dai->private_data = 1; /* McBSP2 */
+	//*(unsigned int *)motsnd_dai[1].cpu_dai->private_data = 2; /* McBSP3 */
 
 	pr_info("Add platfom device\n");	
 	ret = platform_device_add(mot_snd_device);

@@ -49,6 +49,8 @@
 #define STM_STDAC_EN_ST_TEST1_PRE      0x2400
 #define STM_STDAC_EN_ST_TEST1_POST     0x0400
 
+static struct cpcap_device *cpcap;
+
 static const unsigned short cpcap_audio_reg_mask[CPCAP_AUDIO_REG_NUM] = {
 	0x0077, /* [512] CPCAP_REG_VAUDIOC */
 	0xFFFF, /* [513] CPCAP_REG_CC */
@@ -976,27 +978,6 @@ static int snd_soc_put_cpcap_switch(struct snd_kcontrol *kcontrol,
 	if (err)
 		return err;
 
-	if (!val && strstr(name, "USBD")) {
-		reg = CPCAP_REG_USBC2;
-		mask = CPCAP_BIT_EMUMODE2 |
-		       CPCAP_BIT_EMUMODE1 |
-		       CPCAP_BIT_EMUMODE0;
-		if (cpcap_regacc_read(cpcap, reg, &value)) {
-			printk(KERN_INFO "%s: read EMUMODE failed\n", __func__);
-			return -EIO;
-		}
-		if ((value & (CPCAP_BIT_EMUMODE2 | CPCAP_BIT_EMUMODE1 |
-			      CPCAP_BIT_EMUMODE0)) ==
-		    (CPCAP_BIT_EMUMODE2 | CPCAP_BIT_EMUMODE0)) {
-			value = 0;
-			err = cpcap_regacc_write(cpcap, reg, value, mask);
-			if (err) {
-				printk(KERN_INFO "%s: EMUMODE=000 failed\n",
-					__func__);
-			}
-		}
-	}
-
 	return err;
 }
 
@@ -1191,7 +1172,7 @@ static int snd_soc_put_cpcap_gpio(struct snd_kcontrol *kcontrol,
 		value = tmp | CPCAP_BIT_MIC1_RX_TIMESLOT0;
 	} else {
 		/* By default, MIC1 is on slot 0 and MIC2 is on slot 1 */
-			value = tmp | CPCAP_BIT_MIC2_TIMESLOT0;
+		value = tmp | CPCAP_BIT_MIC2_TIMESLOT0;
 	}
 	err = cpcap_audio_reg_write(codec, reg, value);
 	if (err)
@@ -1234,12 +1215,10 @@ static int snd_soc_put_cpcap_gpio(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int daimode = 0;
-
 static int snd_soc_get_cpcap_dai_mode(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
 {
-	return 0; //daimode?
+	return 0;
 }
 
 static int snd_soc_put_cpcap_dai_mode(struct snd_kcontrol *kcontrol,
@@ -1254,8 +1233,10 @@ static int snd_soc_put_cpcap_dai_mode(struct snd_kcontrol *kcontrol,
 
 	CPCAP_AUDIO_DEBUG_LOG("%s: %s - %d\n",
 			      __func__, kcontrol->id.name, value);
-	daimode = value;
-	switch (value) {		
+
+	switch (value) {
+	case 0: /* Audio mode, just stub to prevent error in logcat. */
+		break;
 	case 1: /* cpcap_codec_op_modes_texts[1]: Voice Call Handset*/
 		cpcap_audio_reg_write(codec,
 			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_CC),
@@ -1312,7 +1293,7 @@ static int snd_soc_put_cpcap_dai_mode(struct snd_kcontrol *kcontrol,
 }
 
 
-static void audio_callback(struct cpcap_device *cpcap, int status)
+static void audio_callback(int status)
 {
 	unsigned short *cache;
 	int i = 0;
@@ -1402,7 +1383,7 @@ static void cpcap_mm_shutdown(struct snd_pcm_substream *substream,
 
 	state->stdac_strm_cnt--;
 	if (state->stdac_strm_cnt == 0) {
-		cpcap_audio_reg_write(codec, 3, 0); 
+		cpcap_audio_reg_write(codec, 3, 0);
 		cpcap_audio_reg_write(codec, 4, 4);
 		cpcap_audio_reg_write(codec, 10, 0);
 		if (state->codec_strm_cnt == 0) {
@@ -1535,6 +1516,7 @@ static int cpcap_mm_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	value = cache[reg] & ~(CPCAP_BIT_ST_DAC_CLK2 |
 			       CPCAP_BIT_ST_DAC_CLK1 |
 			       CPCAP_BIT_ST_DAC_CLK0);
+
 	switch (freq) {
 	case 15360000:
 		value |= CPCAP_BIT_ST_DAC_CLK0;
@@ -2204,23 +2186,23 @@ struct snd_soc_dai cpcap_dai[] = {
 },
 {
 	.name = "cpcap in-call",
-/*	.playback = {
+	.playback = {
 		.stream_name = "InCall DL",
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000,
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.capture = {
 		.stream_name = "Capture",
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,},*/
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.ops = &cpcap_dai_incall_ops,
 },
 {
 	.name = "cpcap bt-call",
-/*	.playback = {
+	.playback = {
 		.stream_name = "BTCall DL",
 		.channels_min = 1,
 		.channels_max = 2,
@@ -2231,7 +2213,7 @@ struct snd_soc_dai cpcap_dai[] = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,},*/
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.ops = &cpcap_dai_btcall_ops,
 },
 {
@@ -2286,9 +2268,9 @@ int cpcap_audio_init(struct snd_soc_device *socdev)
 	cpcap_audio_reg_write(codec, 1, 0);
 	cpcap_audio_reg_write(codec, 2, 0);
 	cpcap_audio_reg_write(codec, 3, 0);
-	cpcap_audio_reg_write(codec, 4, 0); //4
+	cpcap_audio_reg_write(codec, 4, 4);
 	cpcap_audio_reg_write(codec, 5, 0);
-	cpcap_audio_reg_write(codec, 6, 0);//0x0400
+	cpcap_audio_reg_write(codec, 6, 0x0400);
 	cpcap_audio_reg_write(codec, 7, 0);
 	cpcap_audio_reg_write(codec, 9, 0);
 	cpcap_audio_reg_write(codec, 10, 0);
@@ -2347,7 +2329,6 @@ static int cpcap_resume(struct platform_device *pdev)
 }
 
 static struct snd_soc_device *cpcap_socdev;
-static struct cpcap_device *cpcap;
 
 static int cpcap_plat_probe(struct platform_device *pdev)
 {
