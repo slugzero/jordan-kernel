@@ -63,7 +63,7 @@ static int motsnd_hw_params(struct snd_pcm_substream *substream,
 	/* Set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai,
 				  SND_SOC_DAIFMT_I2S |
-				  SND_SOC_DAIFMT_NB_IF |
+				  SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0) {
 		printk(KERN_ERR "can't set codec DAI configuration\n");
@@ -252,7 +252,7 @@ static int motsnd_cpcap_voice_init(struct snd_soc_codec *codec)
 static struct snd_soc_dai modem_dai = {
 	.name = "MODEM",
 	.id = 0,
-	/*.playback = {
+	.playback = {
 		.stream_name = "VoiceCall-DL",
 		.channels_min = 1,
 		.channels_max = 2,
@@ -263,15 +263,15 @@ static struct snd_soc_dai modem_dai = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,},*/
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 };
 
 /* Digital audio interface glue - connects codec <--> CPU */
 static struct snd_soc_dai_link motsnd_dai[] = {
 
 {
-	.name = "HiFi",
-	.stream_name = "McBSP2-Codec",
+	.name = "Multimedia",
+	.stream_name = "McBSP2-STDac",
 	.cpu_dai = &omap_mcbsp_dai[0],
 	.codec_dai = &cpcap_dai[0],
 	.init = motsnd_cpcap_voice_init,
