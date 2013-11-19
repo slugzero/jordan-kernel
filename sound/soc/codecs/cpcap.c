@@ -1215,10 +1215,12 @@ static int snd_soc_put_cpcap_gpio(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int daimode = 0;
+
 static int snd_soc_get_cpcap_dai_mode(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
 {
-	return 0;
+	return daimode; //daimode
 }
 
 static int snd_soc_put_cpcap_dai_mode(struct snd_kcontrol *kcontrol,
@@ -1233,20 +1235,62 @@ static int snd_soc_put_cpcap_dai_mode(struct snd_kcontrol *kcontrol,
 
 	CPCAP_AUDIO_DEBUG_LOG("%s: %s - %d\n",
 			      __func__, kcontrol->id.name, value);
-
+	daimode = value;
 	switch (value) {
 	case 0: /* Audio mode, just stub to prevent error in logcat. */
 		break;
 	case 1: /* cpcap_codec_op_modes_texts[1]: Voice Call Handset*/
 		cpcap_audio_reg_write(codec,
 			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_CC),
-			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_CC)] | 0x0093);
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_CC)] | 0x6093);
+
+		cpcap_audio_reg_write(codec,
+			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_CDI),
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_CDI)] | 0xAE42);
+
 		cpcap_audio_reg_write(codec,
 			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_TXI),
 			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_TXI)] | 0x0CC6);
+
 		cpcap_audio_reg_write(codec,
 			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_TXMP),
 			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_TXMP)] | 0x0273);
+
+		cpcap_audio_reg_write(codec,
+			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_SDAC),
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_SDAC)] | 0x0077);
+
+		cpcap_audio_reg_write(codec,
+			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_SDACDI),
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_SDACDI)] | 0x088e);
+
+		cpcap_audio_reg_write(codec,
+			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXOA),
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXOA)] | 0x0001);
+
+		cpcap_audio_reg_write(codec,
+			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXVC),
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXVC)] | 0xdd34);
+
+		cpcap_audio_reg_write(codec,
+			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXCOA),
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXCOA)] | 0x0000);
+
+		cpcap_audio_reg_write(codec,
+			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXSDOA),
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXSDOA)] | 0x1801);
+
+		cpcap_audio_reg_write(codec,
+			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXEPOA),
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXEPOA)] | 0x3401);
+
+		cpcap_audio_reg_write(codec,
+			CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXSDOA),
+			cache[CPCAP_AUDIO_REG_INDEX(CPCAP_REG_RXSDOA)] | 0x0030);
+
+
+		cpcap_regacc_write(cpcap,
+				CPCAP_REG_GPIO1, 0, CPCAP_BIT_GPIO1DRV);
 
 	case 2: /* cpcap_codec_op_modes_texts[2]: Voice Call Headset*/
 	case 3: /* cpcap_codec_op_modes_texts[3]: Voice Call Headset Mic*/
@@ -1383,7 +1427,12 @@ static void cpcap_mm_shutdown(struct snd_pcm_substream *substream,
 
 	state->stdac_strm_cnt--;
 	if (state->stdac_strm_cnt == 0) {
-		cpcap_audio_reg_write(codec, 3, 0);
+		if (daimode == 1) {
+		cpcap_audio_reg_write(codec, 3, 0x0077); //this 
+		cpcap_audio_reg_write(codec, 4, 0x088e); //didn't
+		cpcap_audio_reg_write(codec, 10, 0x1801);  // help.
+		} else {
+		cpcap_audio_reg_write(codec, 3, 0); 
 		cpcap_audio_reg_write(codec, 4, 4);
 		cpcap_audio_reg_write(codec, 10, 0);
 		if (state->codec_strm_cnt == 0) {
@@ -1393,7 +1442,7 @@ static void cpcap_mm_shutdown(struct snd_pcm_substream *substream,
 					__func__);
 				return;
 			}
-			regulator_set_mode(vaudio, REGULATOR_MODE_STANDBY);
+			regulator_set_mode(vaudio, REGULATOR_MODE_STANDBY); }
 		}
 	}
 	cpcap_audio_register_dump(codec);
@@ -1618,7 +1667,7 @@ static int cpcap_mm_set_dai_fmt(struct snd_soc_dai *codec_dai,
 			 CPCAP_BIT_ST_L_TIMESLOT0; /* L on slot 1 */
 		break;
 	}
-
+	value |= CPCAP_BIT_DIG_AUD_IN_ST_DAC; /**/
 	return cpcap_audio_reg_write(codec, reg, value);
 }
 
@@ -2013,8 +2062,8 @@ static int cpcap_incall_hw_params(struct snd_pcm_substream *substream,
 
 	cache = (unsigned short *)codec->reg_cache;
 	if (state->codec_strm_cnt == 1) {
-			ret = cpcap_audio_reg_write(codec, 2, 0x2E02); //was 0xAE02
-			ret |= cpcap_audio_reg_write(codec, 1, 0x6120);//19.2mhz, clock reset
+			ret = cpcap_audio_reg_write(codec, 2, 0xAE42); //was 0xAE02
+			ret |= cpcap_audio_reg_write(codec, 1, 0x6120);//19.2mhz, clock reset //6083?
 		if (ret)
 			return ret;
 		/* Wait for clock tree reset to complete */
@@ -2186,23 +2235,23 @@ struct snd_soc_dai cpcap_dai[] = {
 },
 {
 	.name = "cpcap in-call",
-	.playback = {
+/*	.playback = {
 		.stream_name = "InCall DL",
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.rates = SNDRV_PCM_RATE_8000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.capture = {
 		.stream_name = "Capture",
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
+		.rates = SNDRV_PCM_RATE_8000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},*/
 	.ops = &cpcap_dai_incall_ops,
 },
 {
 	.name = "cpcap bt-call",
-	.playback = {
+/*	.playback = {
 		.stream_name = "BTCall DL",
 		.channels_min = 1,
 		.channels_max = 2,
@@ -2213,7 +2262,7 @@ struct snd_soc_dai cpcap_dai[] = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},*/
 	.ops = &cpcap_dai_btcall_ops,
 },
 {
@@ -2333,7 +2382,7 @@ static struct snd_soc_device *cpcap_socdev;
 static int cpcap_plat_probe(struct platform_device *pdev)
 {
 	cpcap = pdev->dev.platform_data;
-	printk("cpcap_codec_plat_probe: %s\n", pdev->name);
+	printk("cpcap_codec_plat_probe\n");
 	return 0;
 }
 
