@@ -1585,7 +1585,7 @@ static int __init omap_hdq_init(void)
 	return platform_device_register(&omap_hdq_device);
 }
 
-#ifndef CONFIG_BT_WILINK
+#if !defined(CONFIG_BT_WILINK) && !defined(CONFIG_BT_WILINK_MODULE)
 static int mapphone_wl1271_init(void);
 
 static struct wl127x_rfkill_platform_data mapphone_wl1271_pdata = {
@@ -1777,7 +1777,7 @@ static void __init mapphone_init(void)
 	mapphone_ehci_init();
 	mapphone_pm_init();
 	omap_hdq_init();
-#ifndef CONFIG_BT_WILINK
+#if !defined(CONFIG_BT_WILINK) && !defined(CONFIG_BT_WILINK_MODULE)
 	mapphone_bt_init();
 #else
 	platform_add_devices(mapphone_devices, ARRAY_SIZE(mapphone_devices));
