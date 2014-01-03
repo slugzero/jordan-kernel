@@ -47,7 +47,7 @@ struct cpcap_audio_state {
 	int stdac_strm_cnt;
 };
 
-extern struct snd_soc_dai cpcap_dai[5];
+extern struct snd_soc_dai cpcap_dai[7];
 extern struct snd_soc_codec_device soc_codec_dev_cpcap;
 
 #endif /* __ABE_CPCAP_H__ */

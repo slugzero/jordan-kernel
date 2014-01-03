@@ -215,6 +215,38 @@ static struct snd_soc_ops motsnd_btvoice_ops = {
 	.hw_params = motsnd_btvoice_hw_params,
 };
 
+
+static int motsnd_bpvoice_hw_params(struct snd_pcm_substream *substream,
+			       struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->dai->codec_dai->codec;
+	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	struct platform_device *pdev = container_of(codec->dev,
+			struct platform_device, dev);
+	struct cpcap_audio_pdata *pdata = pdev->dev.platform_data;
+	int ret;
+
+	MOTSND_DEBUG_LOG("%s: entered\n", __func__);
+
+		ret = -EIO;
+		printk(KERN_ERR "%s: not valid modem",
+			__func__);
+		return ret;
+
+	/* Set cpu DAI configuration */
+	ret = snd_soc_dai_set_sysclk(cpu_dai,
+				     OMAP_MCBSP_SYSCLK_CLKX_EXT,
+				     0, 0);
+	if (ret < 0)
+		printk(KERN_ERR "can't set cpu DAI system clock\n");
+	return ret;
+}
+
+static struct snd_soc_ops motsnd_bpvoice_ops = {
+	.hw_params = motsnd_bpvoice_hw_params,
+};
+
 static int motsnd_cpcap_init(struct snd_soc_codec *codec)
 {
 	MOTSND_DEBUG_LOG("%s: Entered\n", __func__);
@@ -242,6 +274,18 @@ static struct snd_soc_dai modem_dai = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+};
+
+static struct snd_soc_dai fm_dummy_dai = {
+	.name = "FMDummy",
+	.id = 1,
+	.playback = {
+		.stream_name = "FM-Playback",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 };
@@ -274,6 +318,14 @@ static struct snd_soc_dai_link motsnd_dai[] = {
 	.ops = &motsnd_incall_ops,
 },
 {
+	.name = "FMRadio",
+	.stream_name = "FMAudio",
+	.cpu_dai = &fm_dummy_dai,
+	.codec_dai = &cpcap_dai[6],
+	.init = motsnd_cpcap_voice_init,
+	.ops = &motsnd_fm_ops,
+},
+{
 	.name = "BTCall",
 	.stream_name = "Modem-BT",
 	.cpu_dai = &modem_dai,
@@ -288,6 +340,14 @@ static struct snd_soc_dai_link motsnd_dai[] = {
 	.codec_dai = &cpcap_dai[4],
 	.init = motsnd_cpcap_voice_init,
 	.ops = &motsnd_btvoice_ops,
+},
+{
+	.name = "BPVoice",
+	.stream_name = "McBSP3-BP",
+	.cpu_dai = &omap_mcbsp_dai[1],
+	.codec_dai = &cpcap_dai[5],
+	.init = motsnd_cpcap_voice_init,
+	.ops = &motsnd_bpvoice_ops,
 },
 };
 
@@ -320,6 +380,9 @@ static int __init motsnd_soc_init(void)
 	}
 	pr_info("Register modem DAI\n");
 	snd_soc_register_dai(&modem_dai);
+
+	pr_info("Register FM DAI\n");
+	snd_soc_register_dai(&fm_dummy_dai);
 
 	pr_info("Set driver data\n");
 	platform_set_drvdata(mot_snd_device, &mot_snd_devdata);

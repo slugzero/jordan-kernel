@@ -106,6 +106,11 @@ static int snd_soc_get_cpcap_dai_mode(struct snd_kcontrol *,
 static int snd_soc_put_cpcap_dai_mode(struct snd_kcontrol *,
 				      struct snd_ctl_elem_value *);
 
+static int snd_soc_get_emu_antipop(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol);
+
+static int snd_soc_set_emu_antipop(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol);
 /*
  * Capture Gain Control:
  * from 0dB to 31dB in 1dB steps
@@ -365,6 +370,10 @@ static const struct snd_kcontrol_new cpcap_snd_controls[] = {
 		snd_soc_put_cpcap_gpio),
 	SOC_ENUM_EXT("DAI Mode", cpcap_codec_op_modes,
 		snd_soc_get_cpcap_dai_mode, snd_soc_put_cpcap_dai_mode),
+	/* Enable EMU analog anti-pop for car dock */
+	SOC_SINGLE_BOOL_EXT("EMU AntiPop",
+		0, snd_soc_get_emu_antipop,
+		snd_soc_set_emu_antipop),
 };
 
 static const struct snd_soc_dapm_widget cpcap_dapm_widgets[] = {
@@ -979,6 +988,20 @@ static int snd_soc_put_cpcap_switch(struct snd_kcontrol *kcontrol,
 		return err;
 
 	return err;
+}
+
+static int snd_soc_get_emu_antipop(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	// FIXME
+	return 0;
+}
+
+static int snd_soc_set_emu_antipop(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	// FIXME
+	return 0;
 }
 
 static int snd_soc_put_cpcap_mixer(struct snd_kcontrol *kcontrol,
@@ -2167,6 +2190,23 @@ static int cpcap_btvoice_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int cpcap_fm_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	struct cpcap_audio_state *state = codec->private_data;
+
+	CPCAP_AUDIO_DEBUG_LOG("%s entered, %d stdac streams\n",
+			      __func__, state->stdac_strm_cnt);
+
+	if (state->stdac_strm_cnt != 1) {
+		printk(KERN_INFO "%s:WARNING: %d stdac stream\n",
+			__func__, state->stdac_strm_cnt);
+	}
+
+	return 0;
+}
+
 static struct snd_soc_dai_ops cpcap_dai_mm_ops = {
 	.startup        = cpcap_mm_startup,
 	.shutdown       = cpcap_mm_shutdown,
@@ -2204,6 +2244,11 @@ static struct snd_soc_dai_ops cpcap_dai_btvoice_ops = {
 	.hw_params      = cpcap_btvoice_hw_params,
 };
 
+static struct snd_soc_dai_ops cpcap_dai_fm_ops = {
+	.startup        = cpcap_mm_startup,
+	.shutdown       = cpcap_mm_shutdown,
+	.hw_params      = cpcap_fm_hw_params,
+};
 
 
 struct snd_soc_dai cpcap_dai[] = {
@@ -2235,7 +2280,7 @@ struct snd_soc_dai cpcap_dai[] = {
 },
 {
 	.name = "cpcap in-call",
-/*	.playback = {
+	.playback = {
 		.stream_name = "InCall DL",
 		.channels_min = 1,
 		.channels_max = 2,
@@ -2246,12 +2291,12 @@ struct snd_soc_dai cpcap_dai[] = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,},*/
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.ops = &cpcap_dai_incall_ops,
 },
 {
 	.name = "cpcap bt-call",
-/*	.playback = {
+	.playback = {
 		.stream_name = "BTCall DL",
 		.channels_min = 1,
 		.channels_max = 2,
@@ -2262,7 +2307,7 @@ struct snd_soc_dai cpcap_dai[] = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,},*/
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.ops = &cpcap_dai_btcall_ops,
 },
 {
@@ -2280,6 +2325,31 @@ struct snd_soc_dai cpcap_dai[] = {
 		.rates = SNDRV_PCM_RATE_8000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.ops = &cpcap_dai_btvoice_ops,
+},
+{
+	.name = "BPVoice",
+	.playback = {
+		.stream_name = "incall-playback",
+		.channels_min = 1,
+		.channels_max = 1,
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
+	.capture = {
+		.stream_name = "incall-capture",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
+},
+{
+	.name = "cpcap fm",
+	.playback = {
+		.stream_name = "FMAudio Playback",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
+		.ops = &cpcap_dai_fm_ops,
 },
 };
 
